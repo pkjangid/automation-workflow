@@ -1,0 +1,8 @@
+services:
+  dummy-app:
+    image: registry.cloud360.ca/cloud360/dummy-app:latest
+    container_name: dummy-app
+    restart: unless-stopped
+
+    ports:
+      - "3000:3000"

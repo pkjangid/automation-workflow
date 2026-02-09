@@ -1,0 +1,27 @@
+name: Deploy to Server
+
+on:
+  workflow_run:
+    workflows: ["Build & Push Image"]
+    types:
+      - completed
+
+jobs:
+  deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: [self-hosted, Linux]
+
+    steps:
+      - name: Login to Harbor
+        run: |
+          echo "${{ secrets.HARBOR_PASS }}" | docker login registry.cloud360.ca \
+            -u "${{ secrets.HARBOR_USER }}" --password-stdin
+
+      - name: Deploy using Docker Compose
+        run: |
+          cd /home/sameer/dummy-app
+          docker compose pull
+          docker compose up -d
+
+      - name: Cleanup old images
+        run: docker image prune -af
