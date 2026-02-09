@@ -1,0 +1,68 @@
+name: Dummy App CI/CD (Harbor + Docker Compose)
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  REGISTRY: registry.cloud360.ca
+  IMAGE_NAME: cloud360/dummy-app
+  IMAGE_TAG: latest
+  APP_DIR: /home/sameer/dummy-app
+
+jobs:
+
+# =========================
+# 1️⃣ Build + Push Image
+# =========================
+  build:
+    name: Build & Push Docker Image
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to Harbor
+        run: |
+          echo "${{ secrets.HARBOR_PASSWORD }}" | docker login $REGISTRY \
+          -u "${{ secrets.HARBOR_USERNAME }}" --password-stdin
+
+      - name: Build image
+        run: |
+          docker build -t $REGISTRY/$IMAGE_NAME:$IMAGE_TAG .
+
+      - name: Push image
+        run: |
+          docker push $REGISTRY/$IMAGE_NAME:$IMAGE_TAG
+
+
+# =========================
+# 2️⃣ Deploy on Server
+# =========================
+  deploy:
+    name: Deploy via Docker Compose
+    runs-on: [self-hosted, docker]   # your runner labels
+    needs: build
+
+    steps:
+      - name: Login to Harbor
+        run: |
+          echo "${{ secrets.HARBOR_PASSWORD }}" | docker login $REGISTRY \
+          -u "${{ secrets.HARBOR_USERNAME }}" --password-stdin
+
+      - name: Deploy container
+        run: |
+          set -e
+          cd $APP_DIR
+
+          echo "Pulling latest image..."
+          docker compose pull
+
+          echo "Restarting containers..."
+          docker compose up -d
+
+          echo "Cleaning old images..."
+          docker image prune -f
+
+          docker ps
